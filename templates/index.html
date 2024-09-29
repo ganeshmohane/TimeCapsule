@@ -7,17 +7,69 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #e9ecef;
+            padding: 20px;
+            color: #343a40;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        h2 {
+            color: #495057;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
         }
         .capsule-list {
             margin-top: 20px;
         }
         .capsule {
-            padding: 10px;
-            border: 1px solid #ccc;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
             margin-bottom: 10px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .capsule:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
         button {
+            padding: 10px 15px;
             margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            background-color: #007bff;
+            color: #ffffff;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .countdown {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            resize: none;
+        }
+        input[type="datetime-local"] {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            width: calc(100% - 20px);
+            font-size: 14px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -27,52 +79,79 @@
 
 <h2>Create a Time Capsule</h2>
 <div>
-    <textarea id="capsuleMessage" placeholder="Enter your message"></textarea><br><br>
-    <label for="unlockTime">Unlock Time (in seconds from now):</label>
-    <input type="number" id="unlockTime" placeholder="Enter time in seconds"><br><br>
+    <textarea id="capsuleMessage" placeholder="Enter your message" rows="4"></textarea><br>
+    <label for="unlockTime">Unlock Time:</label>
+    <input type="datetime-local" id="unlockTime" required><br>
     <button onclick="createCapsule()">Create Capsule</button>
 </div>
 
 <h2>Locked Capsules</h2>
-<div class="capsule-list" id="capsuleList"></div>
+<div class="capsule-list" id="lockedCapsuleList"></div>
+
+<h2>Unlocked Capsules</h2>
+<div class="capsule-list" id="unlockedCapsuleList"></div>
 
 <script>
-    // Get the list of capsules and display them
+    
+ // Get the list of capsules and display them
     async function getCapsules() {
         const response = await fetch('/get_capsules');
         const capsules = await response.json();
-        const capsuleList = document.getElementById('capsuleList');
-        capsuleList.innerHTML = '';
+        
+        const lockedCapsuleList = document.getElementById('lockedCapsuleList');
+        const unlockedCapsuleList = document.getElementById('unlockedCapsuleList');
+        lockedCapsuleList.innerHTML = '';
+        unlockedCapsuleList.innerHTML = '';
 
         capsules.forEach(capsule => {
             const capsuleDiv = document.createElement('div');
             capsuleDiv.className = 'capsule';
+
             capsuleDiv.innerHTML = `
-                <p><strong>Capsule ${capsule.index}:</strong></p>
+                <p><strong>Capsule Id ${capsule.index}:</strong></p>
                 <p>Creator: ${capsule.creator}</p>
-                <p>Remaining Time: ${capsule.remainingTime} seconds</p>
+                <p>Unlock On: ${capsule.unlockTime}</p> <!-- Show unlock time -->
                 <p>Status: ${capsule.revealed ? 'Unlocked' : 'Locked'}</p>
                 <button onclick="revealCapsule(${capsule.index})" ${capsule.revealed ? 'disabled' : ''}>Reveal Capsule</button>
                 <button onclick="getMessage(${capsule.index})" ${!capsule.revealed ? 'disabled' : ''}>Get Message</button>
             `;
-            capsuleList.appendChild(capsuleDiv);
+
+            // Append to the respective list
+            if (capsule.revealed) {
+                unlockedCapsuleList.appendChild(capsuleDiv);
+            } else {
+                lockedCapsuleList.appendChild(capsuleDiv);
+            }
         });
     }
+
 
     // Create a time capsule
     async function createCapsule() {
         const message = document.getElementById('capsuleMessage').value;
-        const unlockTime = document.getElementById('unlockTime').value;
+        const unlockTimeInput = document.getElementById('unlockTime').value;
         
-        const response = await fetch('/create_capsule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, unlockTime: Date.now() / 1000 + parseInt(unlockTime) })
-        });
         
-        const result = await response.json();
-        alert(result.status);
-        getCapsules(); // Refresh the capsule list
+        if (unlockTimeInput) {
+            const unlockTime = new Date(unlockTimeInput).getTime() / 1000; // Convert to seconds
+            const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+
+            if (unlockTime > currentTime) {
+                const response = await fetch('/create_capsule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, unlockTime })
+                });
+                
+                const result = await response.json();
+                alert(result.status);
+                document.getElementById('capsuleMessage').value = ''; // Reset message field
+                document.getElementById('unlockTime').value = ''; // Reset unlock time field
+                getCapsules(); // Refresh the capsule list
+            } else {
+                alert('Unlock time must be in the future!');
+            }
+        }
     }
 
     // Reveal a time capsule

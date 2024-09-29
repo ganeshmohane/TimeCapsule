@@ -11,7 +11,7 @@ web3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 # Contract ABI and Address (adjust according to deployment)
 with open('contract_abi.json', 'r') as abi_file:
     contract_abi = json.load(abi_file)
-contract_address = Web3.to_checksum_address('0x2b3c88a6468fc9ead7e177f05e304b4ccc73fb12')
+contract_address = Web3.to_checksum_address('0xa7442b1ae840e9cf61dcc547ccef0b8883bd9e21')
 contract = web3.eth.contract(address=contract_address, abi=contract_abi)
 
 # Set default account for Flask app (or you can allow the user to input it)
@@ -25,9 +25,11 @@ def index():
 def create_capsule():
     data = request.json
     message = data['message']
+    print(data,'data recieved')
     
     # Convert unlockTime from float to integer
     unlock_time = int(data['unlockTime'])  # Ensure unlockTime is sent as an integer (in seconds)
+    print(unlock_time,'unlock time - user input')
 
     tx_hash = contract.functions.createCapsule(message, unlock_time).transact({
         'from': default_account
@@ -37,6 +39,10 @@ def create_capsule():
     return jsonify({'status': 'Capsule created successfully', 'transactionHash': tx_hash.hex()})
 
 
+from flask import jsonify
+import time
+from datetime import datetime
+
 @app.route('/get_capsules')
 def get_capsules():
     capsule_count = contract.functions.getCapsuleCount().call()
@@ -44,15 +50,24 @@ def get_capsules():
 
     for i in range(capsule_count):
         creator, unlock_time, revealed = contract.functions.getCapsuleDetails(i).call()
-        remaining_time = max(0, unlock_time - int(time.time()))
+        
+        # Calculate remaining time in seconds
+        current_time = int(time.time())
+        remaining_time = max(0, unlock_time - current_time)
+        
+        # Convert UNIX time to a readable date format
+        unlock_time_readable = datetime.fromtimestamp(unlock_time).strftime('%Y-%m-%d %H:%M:%S')
+        print(unlock_time_readable)
         capsules.append({
             'index': i,
             'creator': creator,
-            'remainingTime': unlock_time,
+            'remainingTime': remaining_time,
+            'unlockTime': unlock_time_readable,  # Add the readable unlock time
             'revealed': revealed
         })
     
     return jsonify(capsules)
+
 
 @app.route('/reveal_capsule', methods=['POST'])
 def reveal_capsule():
