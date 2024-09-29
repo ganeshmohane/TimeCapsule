@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Capsule DApp</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .capsule-list {
+            margin-top: 20px;
+        }
+        .capsule {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+        button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Time Capsule DApp</h1>
+
+<h2>Create a Time Capsule</h2>
+<div>
+    <textarea id="capsuleMessage" placeholder="Enter your message"></textarea><br><br>
+    <label for="unlockTime">Unlock Time (in seconds from now):</label>
+    <input type="number" id="unlockTime" placeholder="Enter time in seconds"><br><br>
+    <button onclick="createCapsule()">Create Capsule</button>
+</div>
+
+<h2>Locked Capsules</h2>
+<div class="capsule-list" id="capsuleList"></div>
+
+<script>
+    // Get the list of capsules and display them
+    async function getCapsules() {
+        const response = await fetch('/get_capsules');
+        const capsules = await response.json();
+        const capsuleList = document.getElementById('capsuleList');
+        capsuleList.innerHTML = '';
+
+        capsules.forEach(capsule => {
+            const capsuleDiv = document.createElement('div');
+            capsuleDiv.className = 'capsule';
+            capsuleDiv.innerHTML = `
+                <p><strong>Capsule ${capsule.index}:</strong></p>
+                <p>Creator: ${capsule.creator}</p>
+                <p>Remaining Time: ${capsule.remainingTime} seconds</p>
+                <p>Status: ${capsule.revealed ? 'Unlocked' : 'Locked'}</p>
+                <button onclick="revealCapsule(${capsule.index})" ${capsule.revealed ? 'disabled' : ''}>Reveal Capsule</button>
+                <button onclick="getMessage(${capsule.index})" ${!capsule.revealed ? 'disabled' : ''}>Get Message</button>
+            `;
+            capsuleList.appendChild(capsuleDiv);
+        });
+    }
+
+    // Create a time capsule
+    async function createCapsule() {
+        const message = document.getElementById('capsuleMessage').value;
+        const unlockTime = document.getElementById('unlockTime').value;
+        
+        const response = await fetch('/create_capsule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, unlockTime: Date.now() / 1000 + parseInt(unlockTime) })
+        });
+        
+        const result = await response.json();
+        alert(result.status);
+        getCapsules(); // Refresh the capsule list
+    }
+
+    // Reveal a time capsule
+    async function revealCapsule(index) {
+        const response = await fetch('/reveal_capsule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index })
+        });
+
+        const result = await response.json();
+        alert(result.status);
+        getCapsules(); // Refresh the capsule list
+    }
+
+    // Get the revealed message of a time capsule
+    async function getMessage(index) {
+        const response = await fetch('/get_capsule_message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index })
+        });
+
+        const result = await response.json();
+        alert('Revealed Message: ' + result.message);
+    }
+
+    // Load capsules when the page loads
+    window.onload = getCapsules;
+</script>
+
+</body>
+</html>
